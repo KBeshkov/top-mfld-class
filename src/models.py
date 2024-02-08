@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class FeedforwardNetwork(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size, activation=nn.ReLU(), mean=0, std=0.01):
+    def __init__(self, input_size, hidden_sizes, activation=nn.ReLU(), mean=0, std=0.01):
         super(FeedforwardNetwork, self).__init__()
 
         self.layers = nn.ModuleList()
@@ -19,18 +19,25 @@ class FeedforwardNetwork(nn.Module):
             self.layers.append(nn.Linear(hidden_sizes[i-1], hidden_sizes[i]))
             self.layers.append(activation)
 
-        # Output layer
-        self.layers.append(nn.Linear(hidden_sizes[-1], output_size))
 
         # Initialize weights
         self.initialize_weights(mean, std)
 
     def forward(self, x):
+        layerwise_activations = []
         for layer in self.layers:
-            x = layer(x)
-        return x
+            if isinstance(layer, nn.ReLU):
+                x = layer(x)
+                layerwise_activations.append(x.clone())
+            else:
+                x = layer(x)
+        return layerwise_activations
 
     def initialize_weights(self, mean, std):
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
-                nn.init.normal_(layer.weight, mean=mean, std=std)
+                # nn.init.normal_(layer.weight, mean=mean, std=std)
+                nn.init.uniform_(layer.weight,0,1)
+                # nn.init.normal_(layer.bias,mean=0, std=std)
+                # nn.init.zeros_(layer.bias)#,-std,std)
+                
