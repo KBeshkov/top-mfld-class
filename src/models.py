@@ -42,12 +42,40 @@ class FeedforwardNetwork(nn.Module):
     def initialize_weights(self, mean, std):
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
+                # nn.init.zeros_(layer.bias)#,-std,std)
                 if self.init_type == 'normal':
                     nn.init.normal_(layer.weight, mean=mean, std=std)
                 elif self.init_type == 'uniform':
                     std*(nn.init.uniform_(layer.weight,0,1)+mean)
                 elif self.init_type == 'zeros':
                     nn.init.zeros_(layer.weight)
+                else:
+                    break
                     # nn.init.normal_(layer.bias,mean=0, std=std)
-                # nn.init.zeros_(layer.bias)#,-std,std)
-
+                    
+    def compute_rank(self, out_sign):
+        out_mat = 0
+        ranks = []
+        for x in out_sign:
+            for layer in self.layers:
+                if isinstance(layer, nn.Linear):
+                    Q = (torch.eye(layer.weight.shape[0])*x)
+                    out_mat = Q@layer.weight
+                fin_rank = torch.linalg.matrix_rank(out_mat)
+            ranks.append(fin_rank)
+        return ranks
+    
+    def compute_rank_at_point(self, x):
+        ranks = []
+        for n, layer in enumerate(self.layers):
+            x = layer(x)
+            if isinstance(layer, nn.Linear):
+                out_sign = (x>0).float()
+                Q = (torch.eye(layer.weight.shape[0])*out_sign)
+                if n==0:
+                    out_mat = Q@layer.weight
+                else:
+                    out_mat = Q@layer.weight@out_mat
+                fin_rank = torch.linalg.matrix_rank(out_mat)
+                ranks.append(fin_rank)
+        return ranks
