@@ -83,3 +83,21 @@ class OptFunctions:
         if self.discretize:
             f_x = f_x>f_x.mean()
         return x,f_x
+
+def gen_classif_functions(f,n_functions):
+    new_functions  = np.zeros([*np.shape(f),n_functions+1])
+    new_functions[:,0] = f>=np.mean(f)
+    n_vals = 2
+    for n in range(n_functions):
+        for k in range(n_vals+2**n):
+            percentile_low = np.percentile(f.flatten(), 100*k/(n_vals+2**n))
+            percentile_high = np.percentile(f.flatten(), 100*(k+1)/(n_vals+2**n))
+            new_functions[np.logical_and(percentile_low<f, f<=percentile_high),n+1] = k/(n_vals+2**n)
+        new_functions[:,n+1] = (new_functions[:,n+1]-np.mean(new_functions[:,n+1]))/np.std(new_functions[:,n+1]) 
+        n_vals = n_vals+2**n
+    return new_functions
+            
+            
+            
+            
+            

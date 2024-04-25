@@ -62,7 +62,7 @@ class FeedforwardNetwork(nn.Module):
                     Q = (torch.eye(layer.weight.shape[0])*x)
                     out_mat = Q@layer.weight
                 fin_rank = torch.linalg.matrix_rank(out_mat)
-            ranks.append(fin_rank)
+            ranks.append(fin_rank.item())
         return ranks
     
     def compute_rank_at_point(self, x):

@@ -454,7 +454,7 @@ class PersistentHomology:
         cocycles = birth_death_diagram["cocycles"]
         return [self.normalize(diagram) if normalized else birth_death_diagram, cocycles]
     
-    def relative_homology(self, manifold, submanifold, metric, dimred, *args, coeff=2, quotient_metric='Iso'):
+    def relative_homology(self, manifold, submanifolds, metric, dimred, *args, coeff=2, quotient_metric='Iso'):
         """
         Computes relative persistent homology
         -----------------------
@@ -464,35 +464,33 @@ class PersistentHomology:
             manifold = PCA(n_components=dimred).fit_transform(manifold)
         distance_matrix = metric(manifold)
         
-        for simplex_i in submanifold:
-            for simplex_j in submanifold:
-                distance_matrix[simplex_i, simplex_j] = 0
-       
+        for submanifold in submanifolds:
+            for simplex_i in submanifold:
+                for simplex_j in submanifold:
+                    distance_matrix[simplex_i, simplex_j] = 0
+           
+            
+            if quotient_metric=='Iso': 
+                # Assuming the quotient space is the orbit of an isometry group see:
+                #https://math.stackexchange.com/questions/3117663/quotient-space-metric-with-nice-equivalence-classes?noredirect=1&lq=1
+                #and Theorem 2.1 https://www.degruyter.com/document/doi/10.1515/forum-2012-0152/html
+                # Also works if the quotient is a single connected set
+                for point in range(len(manifold)):
+                    distance_matrix[point,submanifold] = np.min(distance_matrix[point, submanifold])
+                    distance_matrix[submanifold, point] = np.min(distance_matrix[submanifold, point])            
+            
+            
+            if quotient_metric=='Average':
+                for point in range(len(manifold)):
+                    distance_matrix[point,submanifold] = np.mean(distance_matrix[point, submanifold])
+                    distance_matrix[submanifold, point] = np.mean(distance_matrix[submanifold, point])      
+                    
+        set_complement = np.setdiff1d(np.arange(len(distance_matrix)), np.concatenate(submanifolds))
+        quotient_set = np.sort(np.append(set_complement, [submanifold[0] for submanifold in submanifolds]))
+        distance_matrix = distance_matrix[quotient_set,:][:,quotient_set].copy(order='C')
+        distance_matrix = shortest_path(distance_matrix)
+        np.fill_diagonal(distance_matrix,0)
         
-        if quotient_metric=='Iso': 
-            # Assuming the quotient space is the orbit of an isometry group see:
-            #https://math.stackexchange.com/questions/3117663/quotient-space-metric-with-nice-equivalence-classes?noredirect=1&lq=1
-            #and Theorem 2.1 https://www.degruyter.com/document/doi/10.1515/forum-2012-0152/html
-            # Also works if the quotient is a single connected set
-            for point in range(len(manifold)):
-                distance_matrix[point,submanifold] = np.min(distance_matrix[point, submanifold])
-                distance_matrix[submanifold, point] = np.min(distance_matrix[submanifold, point])            
-            set_complement = np.setdiff1d(np.arange(len(manifold)), submanifold)
-            quotient_set = np.sort(np.append(set_complement, submanifold[0]))
-            distance_matrix = distance_matrix[quotient_set,:][:,quotient_set].copy(order='C')
-            distance_matrix = shortest_path(distance_matrix)
-            np.fill_diagonal(distance_matrix,0)
-        
-        if quotient_metric=='Average':
-            for point in range(len(manifold)):
-                distance_matrix[point,submanifold] = np.mean(distance_matrix[point, submanifold])
-                distance_matrix[submanifold, point] = np.mean(distance_matrix[submanifold, point])            
-            set_complement = np.setdiff1d(np.arange(len(manifold)), submanifold)
-            quotient_set = np.sort(np.append(set_complement, submanifold[0]))
-            distance_matrix = distance_matrix[quotient_set,:][:,quotient_set].copy(order='C')
-            distance_matrix = shortest_path(distance_matrix)
-            np.fill_diagonal(distance_matrix,0)
-
         birth_death_diagram = tda(
             distance_matrix,
             distance_matrix=True,
