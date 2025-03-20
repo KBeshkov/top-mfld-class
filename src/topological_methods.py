@@ -52,6 +52,8 @@ import networkx as nx
 from ripser import ripser as tda
 from persim import plot_diagrams, bottleneck, sliced_wasserstein
 
+import torch
+
 
 #np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
@@ -311,7 +313,10 @@ class ManifoldGenerator:
             TN_array.append(args[0]*np.sin(phi_i.flatten()))
         return np.array(TN_array)
         
-    
+    def ParametricKnot(self, amount_of_points, a, b, c, d, *args):
+        r, theta = args[0], np.linspace(0, 2 * np.pi, amount_of_points, endpoint=False)
+        return np.array([r * np.cos(a*theta) * np.cos(b*theta), r * np.cos(c*theta) * np.sin(d*theta)])
+        
     def Sn(self, amount_of_points, *args):
         """
         Samples random points from an $S^n$ sphere.
@@ -742,3 +747,48 @@ class GeodesicKNN:
         return d_geod
 
     
+
+def adjacency_structure(adj_matrix,adj_range=2):
+    """
+    Generates a weight matrix based on the adjacency matrix of a graph.
+
+    Parameters
+    ----------
+    adj_matrix : torch Tensor or numpy array
+        An adjacency matrix.
+    adj_range : int, optional
+        The range at which neurons are considered "neighbors" and assigend a positive weight. The default is 2.
+
+    Returns
+    -------
+    w : torch Tensor
+        The output weight matrix.
+
+    """
+    w = torch.zeros(*adj_matrix.shape)
+    neighbors = torch.logical_and(adj_matrix<=adj_range,adj_matrix!=0)
+    w[neighbors] = 1
+    N_neighbors = torch.sum(neighbors,1)
+    N_outside = torch.sum(adj_matrix>adj_range,1)
+    for i in range(len(w)):
+        w[i,(adj_matrix>adj_range)[i]] = -N_neighbors[i]/N_outside[i]
+    return w
+
+
+def calculate_laplacian(adjacency):
+    '''   
+    Calculates the graph laplacian of a graph, given by the adjacecny matrix.
+
+    Parameters
+    ----------
+    adjacency : numpy array
+        The adjecency matrix of a graph.
+
+    Returns
+    -------
+    The Laplacian of a graph.
+
+    '''
+    degrees = np.diag(np.sum(adjacency,0))
+    laplacian = degrees-adjacency
+    return laplacian
